@@ -67,11 +67,8 @@ class ReinforceModule(torch.nn.Module):
         return loss.sum()
 
     
-    def clear(self):
-        self.rewards = []
-        self.actions = []
-        self.tot_reward = 0
-
+    def reset(self):
+        self.history = []
 
 
 
