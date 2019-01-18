@@ -27,7 +27,6 @@ class ReinforceModule(torch.nn.Module):
     def __init__(self, **kwargs):
         super(ReinforceModule, self).__init__(**kwargs)
         self.gamma = kwargs["gamma"] if "gamma" in kwargs else 0.99
-        self.device = kwargs["device"] if "device" in kwargs else "cpu"
         self.distribution = kwargs["distribution"] if "distribution" in kwargs else torch.distributions.Categorical 
         self.checkused = kwargs["checkused"] if "checkused" in kwargs else True
         self.history = []
@@ -52,20 +51,15 @@ class ReinforceModule(torch.nn.Module):
     def loss(self):
         history = list(filter(lambda x: x.reward is not None and x.action is not None, self.history))
         log_probs = torch.stack(list(map(lambda x: x._log_prob(), history)))
-        rewards = torch.tensor(list(map(lambda x: x.get_reward(), history)), device=self.device)
+        rewards = list(map(lambda x: x.get_reward(), history))
 
-        #comulative = torch.cumsum(rewards)
-        #gammas = torch.cumprod(torch.ones(len(history)*self.gamma))
-        #disconted_rewards = comulative*gammas
-        #disconted_rewards = (disconted_rewards - disconted_rewards.mean()) / (disconted_rewards.std() + np.finfo(np.float32).eps.item())
-
-        comulative = torch.tensor(0, dtype=torch.float32, device=self.device)
+        comulative = torch.tensor(0, dtype=torch.float32, device=log_probs.device)
         disconted_rewards = []
         for r in rewards:
             comulative = comulative*self.gamma + r
             disconted_rewards.append(comulative.unsqueeze(0))
         
-        disconted_rewards = torch.tensor(disconted_rewards, device=self.device)
+        disconted_rewards = torch.tensor(disconted_rewards, device=log_probs.device)
         if disconted_rewards.abs().sum() != 0:
             disconted_rewards = (disconted_rewards - disconted_rewards.mean()) / disconted_rewards.std()
         
@@ -94,9 +88,9 @@ class Test(ReinforceModule):
         return self.net(x)
 
 
-a = Test()
-b = a.get_action(torch.randn(2))
-c = a.get_action(torch.randn(2))
+a = Test().to(torch.device("cuda"))
+b = a.get_action(torch.randn(2).to(torch.device("cuda")))
+c = a.get_action(torch.randn(2).to(torch.device("cuda")))
 
 print(b, b.get(), c.get())
 
