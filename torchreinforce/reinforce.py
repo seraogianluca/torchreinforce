@@ -14,6 +14,9 @@ class ReinforceOutput:
     def reward(self, reward):
         self._reward = reward
     
+    def get_reward(self):
+        return self._reward
+    
     def _log_prob(self):
         self.used = True
         return self.distribution.log_prob(self.action).unsqueeze(0)
@@ -49,7 +52,7 @@ class ReinforceModule(torch.nn.Module):
     def loss(self):
         history = list(filter(lambda x: x.reward is not None and x.action is not None, self.history))
         log_probs = torch.stack(list(map(lambda x: x._log_prob(), history)))
-        rewards = torch.tensor(list(map(lambda x: x._reward, history)), device=self.device)
+        rewards = torch.tensor(list(map(lambda x: x.get_reward(), history)), device=self.device)
 
         #comulative = torch.cumsum(rewards)
         #gammas = torch.cumprod(torch.ones(len(history)*self.gamma))
