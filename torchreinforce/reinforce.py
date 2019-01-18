@@ -1,34 +1,16 @@
 import torch
 from functools import wraps
 
-class ReinforceOutput:
-    def __init__(self, distribution):
-        self.distribution = distribution
-        self.action = None
-        self._reward = None
-        self.used = False
-
-    def get(self):
-        self.action = self.distribution.sample()
-        return self.action.item()
-    
-    def reward(self, reward):
-        self._reward = reward
-    
-    def get_reward(self):
-        return self._reward
-    
-    def _log_prob(self):
-        self.used = True
-        return -self.distribution.log_prob(self.action).unsqueeze(0)
-
-
+from .output import ReinforceOutput
+from .distributions import Categorical, getNonDeterministicWrapper
 
 class ReinforceModule(torch.nn.Module):
     def __init__(self, **kwargs):
-        super(ReinforceModule, self).__init__(**kwargs)
+        super(ReinforceModule, self).__init__()
         self.gamma = kwargs["gamma"] if "gamma" in kwargs else 0.99
-        self.distribution = kwargs["distribution"] if "distribution" in kwargs else torch.distributions.Categorical 
+        self.distribution = kwargs["distribution"] if "distribution" in kwargs else Categorical
+        if issubclass(self.distribution, torch.distributions.Distribution):
+            self.distribution = getNonDeterministicWrapper(self.distribution)
         self.checkused = kwargs["checkused"] if "checkused" in kwargs else True
         self.history = []
 
@@ -36,12 +18,13 @@ class ReinforceModule(torch.nn.Module):
         @wraps(model_forward)
         def decorated(*args, **kwargs):
             self = args[0]
+
             if self.checkused: self._check_used()
             
             model_output = model_forward(*args, **kwargs)
-            c = self.distribution(model_output)
-            output = ReinforceOutput(c)
-            self.history.append(output)
+            dist = self.distribution(model_output, deterministic=not self.training)
+            output = ReinforceOutput(dist)
+            if self.training: self.history.append(output)
 
             return output
 
@@ -66,7 +49,7 @@ class ReinforceModule(torch.nn.Module):
         if normalize:
             disconted_rewards = (disconted_rewards - disconted_rewards.mean()) / disconted_rewards.std()
         
-        loss = torch.mul(disconted_rewards, log_probs)
+        loss = torch.mul(disconted_rewards, -1*log_probs)
         return loss.sum()
 
 
