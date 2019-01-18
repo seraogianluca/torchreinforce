@@ -1,4 +1,7 @@
 import torch
+from functools import wraps
+
+
 
 class ReinforceOutput:
     def __init__(self, distribution):
@@ -31,22 +34,25 @@ class ReinforceModule(torch.nn.Module):
         self.checkused = kwargs["checkused"] if "checkused" in kwargs else True
         self.history = []
 
+    def forward(model_forward):
+        @wraps(model_forward)
+        def decorated(*args, **kwargs):
+            self = args[0]
+            if self.checkused: self._check_used()
+            
+            model_output = model_forward(*args, **kwargs)
+            c = self.distribution(model_output)
+            output = ReinforceOutput(c)
+            self.history.append(output)
+
+            return output
+
+        return decorated
+
     def _check_used(self):
         if len(self.history) != 0 and len(list(filter(lambda x: x.used, self.history))) != 0:
             raise Exception("One or more outputs seems to be already been used, you may want to reset() this module. \
             If you know what you are doing you can ignore di this check by settig checkused to False")
-
-    def get_action(self, x):
-        if self.checkused: self._check_used()
-        y = self(x)
-
-        if self.training:
-            c = self.distribution(y)
-            output = ReinforceOutput(c)
-            self.history.append(output)
-            return output
-        else:
-            return y.max(0)[1]
 
     def loss(self):
         history = list(filter(lambda x: x.reward is not None and x.action is not None, self.history))
@@ -72,7 +78,6 @@ class ReinforceModule(torch.nn.Module):
 
 
 
-
 class Test(ReinforceModule):
     def __init__(self):
         super(Test, self).__init__()
@@ -81,13 +86,14 @@ class Test(ReinforceModule):
             torch.nn.Sigmoid()
         )
     
+    @ReinforceModule.forward
     def forward(self, x):
         return self.net(x)
 
 
 a = Test().to(torch.device("cuda"))
-b = a.get_action(torch.randn(2).to(torch.device("cuda")))
-c = a.get_action(torch.randn(2).to(torch.device("cuda")))
+b = a(torch.randn(2).to(torch.device("cuda")))
+c = a(torch.randn(2).to(torch.device("cuda")))
 
 print(b, b.get(), c.get())
 
