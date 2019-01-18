@@ -1,1 +1,2 @@
-from .reinforce import ReinforceModule
+from torchreinforce.reinforce import ReinforceModule
+import torchreinforce.distributions as distributions

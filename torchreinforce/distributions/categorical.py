@@ -1,8 +1,5 @@
 import torch
-
-class ReinforceDistribution:
-    def __init__(self):
-        pass
+from .base import ReinforceDistribution
 
 class Categorical(ReinforceDistribution, torch.distributions.Categorical):
     def __init__(self, probs, **kwargs):
@@ -16,10 +13,3 @@ class Categorical(ReinforceDistribution, torch.distributions.Categorical):
             return self.probs.max(0)[1]
         else:
             return torch.distributions.Categorical.sample(self)
-
-def getNonDeterministicWrapper(baseClass):
-    class NonDeterministicWrapper(baseClass):
-        def __init__(self, *args, **kwargs):
-            if "deterministic" in kwargs: del kwargs["deterministic"]
-            super(NonDeterministicWrapper, self).__init__(*args, **kwargs)
-    return NonDeterministicWrapper
