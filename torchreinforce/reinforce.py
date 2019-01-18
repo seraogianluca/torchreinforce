@@ -2,15 +2,18 @@ import torch
 from functools import wraps
 
 from .output import ReinforceOutput
-from .distributions import Categorical, getNonDeterministicWrapper
+from .distributions import *
 
 class ReinforceModule(torch.nn.Module):
     def __init__(self, **kwargs):
         super(ReinforceModule, self).__init__()
         self.gamma = kwargs["gamma"] if "gamma" in kwargs else 0.99
         self.distribution = kwargs["distribution"] if "distribution" in kwargs else Categorical
-        if issubclass(self.distribution, torch.distributions.Distribution):
+        
+        if issubclass(self.distribution, torch.distributions.Distribution)\
+        and not issubclass(self.distribution, ReinforceDistribution):
             self.distribution = getNonDeterministicWrapper(self.distribution)
+        
         self.checkused = kwargs["checkused"] if "checkused" in kwargs else True
         self.history = []
 
@@ -18,14 +21,14 @@ class ReinforceModule(torch.nn.Module):
         @wraps(model_forward)
         def decorated(*args, **kwargs):
             self = args[0]
-
             if self.checkused: self._check_used()
             
             model_output = model_forward(*args, **kwargs)
-            dist = self.distribution(model_output, deterministic=not self.training)
+            if type(model_output) != list: model_output = [model_output]
+            dist = self.distribution(*model_output, deterministic=not self.training)
             output = ReinforceOutput(dist)
-            if self.training: self.history.append(output)
 
+            if self.training: self.history.append(output)
             return output
 
         return decorated
