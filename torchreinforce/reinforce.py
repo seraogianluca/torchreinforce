@@ -1,8 +1,6 @@
 import torch
 from functools import wraps
 
-
-
 class ReinforceOutput:
     def __init__(self, distribution):
         self.distribution = distribution
@@ -79,34 +77,3 @@ class ReinforceModule(torch.nn.Module):
     
     def reset(self):
         self.history = []
-
-
-
-class Test(ReinforceModule):
-    def __init__(self):
-        super(Test, self).__init__()
-        self.net = torch.nn.Sequential(
-            torch.nn.Linear(2, 2),
-            torch.nn.Sigmoid()
-        )
-    
-    @ReinforceModule.forward
-    def forward(self, x):
-        return self.net(x)
-
-'''
-a = Test().to(torch.device("cuda"))
-b = a(torch.randn(2).to(torch.device("cuda")))
-c = a(torch.randn(2).to(torch.device("cuda")))
-
-print(b, b.get(), c.get())
-
-b.reward(3)
-c.reward(2)
-
-
-loss = a.loss()
-
-print(loss)
-loss.backward()
-'''
