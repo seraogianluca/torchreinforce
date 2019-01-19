@@ -9,7 +9,8 @@ class ReinforceModule(torch.nn.Module):
         super(ReinforceModule, self).__init__()
         self.gamma = kwargs["gamma"] if "gamma" in kwargs else 0.99
         self.distribution = kwargs["distribution"] if "distribution" in kwargs else Categorical
-        
+        self.defaultreward = kwargs["defaultreward"] if "defaultreward" in kwargs else None
+
         if issubclass(self.distribution, torch.distributions.Distribution)\
         and not issubclass(self.distribution, ReinforceDistribution):
             self.distribution = getNonDeterministicWrapper(self.distribution)
@@ -26,7 +27,7 @@ class ReinforceModule(torch.nn.Module):
             model_output = model_forward(*args, **kwargs)
             if type(model_output) != list: model_output = [model_output]
             dist = self.distribution(*model_output, deterministic=not self.training)
-            output = ReinforceOutput(dist)
+            output = ReinforceOutput(dist, defaultreward=self.defaultreward)
 
             if self.training: self.history.append(output)
             return output

@@ -1,8 +1,8 @@
 class ReinforceOutput:
-    def __init__(self, distribution):
+    def __init__(self, distribution, defaultreward=None):
         self.distribution = distribution
         self.action = None
-        self._reward = None
+        self._reward = defaultreward
         self.used = False
 
     def get(self):
