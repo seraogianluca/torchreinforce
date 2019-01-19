@@ -43,11 +43,11 @@ class ReinforceModule(torch.nn.Module):
         log_probs = torch.stack(list(map(lambda x: x._log_prob(), history)))
         rewards = list(map(lambda x: x.get_reward(), history))
 
-        comulative = torch.tensor(0, dtype=torch.float32, device=log_probs.device)
+        comulative = 0.0
         disconted_rewards = []
         for r in reversed(rewards):
             comulative = comulative*self.gamma + r
-            disconted_rewards.append(comulative.unsqueeze(0))
+            disconted_rewards.append(comulative)
         
         disconted_rewards = torch.tensor(disconted_rewards, device=log_probs.device)
         if normalize:
