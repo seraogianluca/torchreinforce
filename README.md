@@ -17,6 +17,8 @@ In order to use the REINFORCE algorithm with your model you only need to do two 
 That's it!
 
 ```python
+from torchreinforce import ReinforceModule
+
 class Model(ReinforceModule):
     def __init__(self, **kwargs):
         super(Model, self).__init__(**kwargs)
@@ -71,6 +73,8 @@ I've added the possibility to distribution to have a **deterministic** behavior 
 If you want to use the ``torch.distributions.Beta`` distribution for example you will need to do something like
 
 ```python
+from torchreinforce import ReinforceModule
+
 class Model(ReinforceModule):
     def __init__(self, **kwargs):
         super(Model, self).__init__(**kwargs)
@@ -113,6 +117,8 @@ You **have to** call the ``reset()`` function of ``ReinforceModule`` **before** 
 A complete example looks like this:
 
 ```python
+from torchreinforce import ReinforceModule
+
 class Model(ReinforceModule):
     def __init__(self, **kwargs):
         super(Model, self).__init__(**kwargs)
