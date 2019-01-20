@@ -7,7 +7,7 @@ from .distributions import *
 class ReinforceModule(torch.nn.Module):
     def __init__(self, **kwargs):
         super(ReinforceModule, self).__init__()
-        self.gamma = kwargs("gamma", 0.99)
+        self.gamma = kwargs.get("gamma", 0.99)
         self.distribution = kwargs.get("distribution", Categorical)
         self.defaultreward = kwargs.get("defaultreward")
 
