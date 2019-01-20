@@ -7,15 +7,15 @@ from .distributions import *
 class ReinforceModule(torch.nn.Module):
     def __init__(self, **kwargs):
         super(ReinforceModule, self).__init__()
-        self.gamma = kwargs["gamma"] if "gamma" in kwargs else 0.99
-        self.distribution = kwargs["distribution"] if "distribution" in kwargs else Categorical
-        self.defaultreward = kwargs["defaultreward"] if "defaultreward" in kwargs else None
+        self.gamma = kwargs("gamma", 0.99)
+        self.distribution = kwargs.get("distribution", Categorical)
+        self.defaultreward = kwargs.get("defaultreward")
 
         if issubclass(self.distribution, torch.distributions.Distribution)\
         and not issubclass(self.distribution, ReinforceDistribution):
             self.distribution = getNonDeterministicWrapper(self.distribution)
-        
-        self.checkused = kwargs["checkused"] if "checkused" in kwargs else True
+
+        self.checkused = kwargs.get("checkused", True)
         self.history = []
 
     def forward(model_forward):
@@ -23,7 +23,7 @@ class ReinforceModule(torch.nn.Module):
         def decorated(*args, **kwargs):
             self = args[0]
             if self.checkused: self._check_used()
-            
+
             model_output = model_forward(*args, **kwargs)
             if type(model_output) != list: model_output = [model_output]
             dist = self.distribution(*model_output, deterministic=not self.training)
@@ -48,11 +48,11 @@ class ReinforceModule(torch.nn.Module):
         for r in reversed(rewards):
             comulative = comulative*self.gamma + r
             disconted_rewards.append(comulative)
-        
+
         disconted_rewards = torch.tensor(disconted_rewards, device=log_probs.device)
         if normalize:
             disconted_rewards = (disconted_rewards - disconted_rewards.mean()) / disconted_rewards.std()
-        
+
         loss = torch.mul(disconted_rewards, -1*log_probs)
         return loss.sum()
 
@@ -61,6 +61,6 @@ class ReinforceModule(torch.nn.Module):
         history = list(filter(lambda x: x.get_reward() is not None and x.action is not None, self.history))
         rewards = list(map(lambda x: x.get_reward(), history))
         return sum(rewards)
-    
+
     def reset(self):
         self.history = []
