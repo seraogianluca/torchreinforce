@@ -15,7 +15,6 @@ class DeepReinforceModule(nn.Module):
         #Iperparametri
         self.gamma = kwargs.get("gamma", 0.99)
         self.memory_size = kwargs.get("memory_size", 1000)
-        self.batch_size = kwargs.get("batch_size", 32)
         self.epsilon_init = kwargs.get("epsilon_init", 0.0001)
         self.epsilon_max = kwargs.get("epsilon_max", 0.1)
         self.epsilon_decay = kwargs.get("epsilon_decay", 200)
