@@ -19,14 +19,14 @@ class DeepReinforceModule(nn.Module):
         self.epsilon_max = kwargs.get("epsilon_max", 0.1)
         self.epsilon_decay = kwargs.get("epsilon_decay", 200)
         self.learning_rate = kwargs.get("lr", 0.001)
-        self.target_update_rate = kwargs.get("target_update", 10)
+        self.target_update_rate = kwargs.get("target_update", 50)
         self.counter = 0
         #Rete target, ottimizzatore e memoria
         self.memory = ReplayMemory(self.memory_size)
         self.target_net = kwargs.get("target_net", None)
 
         if self.target_net is not None:
-            self.optimizer = optim.RMSprop(self.parameters(), lr=self.learning_rate)
+            self.optimizer = optim.RMSprop(self.parameters())
         
 
     def loss(self, **kwargs):
@@ -43,7 +43,7 @@ class DeepReinforceModule(nn.Module):
             Q_opt = reward + torch.mul(Q_exp.detach(), self.gamma)
         else:
             Q_opt = reward
-        return functional.mse_loss(Q, Q_opt)
+        return functional.smooth_l1_loss(Q, Q_opt)
 
 
     def select_action(self):
@@ -64,7 +64,8 @@ class DeepReinforceModule(nn.Module):
     def clipping_reward(self):
         '''Clipping positive and negative rewards to 1 and -1 respectively.'''
         for param in self.parameters():
-            param.grad.data.clamp_(-1, 1)
+            if param.grad is not None:
+                param.grad.data.clamp_(-1, 1)
 
 
     def update_target(self):

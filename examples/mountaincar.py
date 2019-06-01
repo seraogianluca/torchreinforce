@@ -7,6 +7,7 @@ sys.path.append(parentdir)
 import gym
 import torch
 import torch.nn as nn
+import random
 from torchreinforce import DeepReinforceModule
 
 env = gym.make('MountainCar-v0')
@@ -40,27 +41,56 @@ def init_normal(m):
 
 policy_net.apply(init_normal)
 
-for i_episode in range(EPISODES):
+for each_game in range(1000):
+    total_reward = 0
     state = torch.as_tensor(env.reset(), dtype=torch.float, device=device)
-
     done = False
     while not done:
-        env.render()
+        #env.render()
         #Epsilon-greedy policy
-        if policy_net.select_action():
-            action = env.action_space.sample()
-        else:
-            action = policy_net(state).max(-1)[1]
-            action = action.item()
-
+        action = random.randrange(0, 3)
         next_state, reward, done, _ = env.step(action)
-        next_state = torch.as_tensor(next_state, dtype=torch.float, device=device) 
+        next_state = torch.as_tensor(next_state, dtype=torch.float, device=device)
+
+        if next_state[0].item() > -0.4:
+            reward = 1.
 
         if done:
             next_state = None
 
         policy_net.memory.store(state, action, reward, next_state)
         state = next_state 
+        total_reward += reward
+
+    if each_game % 50 == 0:
+        print("Game: %d  action: %d  total_reward: %d" % (each_game, action, total_reward))
+env.close()
+
+for i_episode in range(EPISODES):
+    total_reward = 0
+    state = torch.as_tensor(env.reset(), dtype=torch.float, device=device)
+    done = False
+    while not done:
+        #env.render()
+        #Epsilon-greedy policy
+        if policy_net.select_action():
+            action = random.randrange(0, 3)
+        else:
+            action = policy_net(state).max(-1)[1]
+            action = action.item()
+
+        next_state, reward, done, _ = env.step(action)
+        next_state = torch.as_tensor(next_state, dtype=torch.float, device=device)
+
+        if next_state[0].item() > -0.4:
+            reward = 1.
+            
+        if done:
+            next_state = None
+
+        policy_net.memory.store(state, action, reward, next_state)
+        state = next_state 
+        total_reward += reward
 
     loss = policy_net.loss()
     policy_net.zero_grad()
@@ -71,6 +101,6 @@ for i_episode in range(EPISODES):
         policy_net.update_target()
 
     if i_episode % 50 == 0:
-        print("Episode: %d  loss: %f  reward_threshold: %d" % (i_episode, loss.item(), env.spec.reward_threshold))
+        print("Episode: %d  loss: %f  total_reward: %d reward_threshold: %d" % (i_episode, loss.item(), total_reward, env.spec.reward_threshold))
 
 env.close()
