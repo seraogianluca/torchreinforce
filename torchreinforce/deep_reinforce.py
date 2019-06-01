@@ -26,7 +26,7 @@ class DeepReinforceModule(nn.Module):
         self.target_net = kwargs.get("target_net", None)
 
         if self.target_net is not None:
-            self.optimizer = optim.RMSprop(self.target_net.parameters(), lr=self.learning_rate)
+            self.optimizer = optim.RMSprop(self.parameters(), lr=self.learning_rate)
         
 
     def loss(self, **kwargs):
@@ -35,7 +35,7 @@ class DeepReinforceModule(nn.Module):
         state = torch.cat(batch.state) 
         action = torch.tensor(batch.action)
         reward = torch.tensor(batch.reward)
-        Q = self(state).gather(-1, action) 
+        Q = self(state).gather(-1, action)
 
         if batch.next_state[0] is not None:
             next_state = torch.cat(batch.next_state)

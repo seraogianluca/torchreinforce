@@ -1,3 +1,9 @@
+import os
+import sys
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 import gym
 import torch
 import torch.nn as nn
@@ -14,9 +20,9 @@ class Policy(DeepReinforceModule):
     def __init__(self, **kwargs):
         super(Policy, self).__init__(**kwargs)
         self.net = torch.nn.Sequential(
-            nn.Linear(STATE_SPACE, 128),
+            nn.Linear(STATE_SPACE, 200),
             nn.ReLU(),
-            nn.Linear(128, ACTION_SPACE),
+            nn.Linear(200, ACTION_SPACE),
             nn.ReLU()
         )
 
@@ -24,8 +30,8 @@ class Policy(DeepReinforceModule):
         return self.net(x)
 
 
-target_net = Policy()
-policy_net = Policy(target_net=target_net)
+target_net = Policy(gamma=0.999, epsilon_init=0.9, epsilon_max=0.05, epsilon_decay=200)
+policy_net = Policy(gamma=0.999, epsilon_init=0.9, epsilon_max=0.05, epsilon_decay=200, target_net=target_net)
 
 #Weights initializer
 def init_normal(m):
@@ -56,13 +62,13 @@ for i_episode in range(EPISODES):
         policy_net.memory.store(state, action, reward, next_state)
         state = next_state 
 
-        if i_episode % policy_net.counter == 0:
-            policy_net.update_target()
-
     loss = policy_net.loss()
     policy_net.zero_grad()
     loss.backward()
     policy_net.optimizer.step()
+
+    if i_episode % policy_net.target_update_rate == 0:
+        policy_net.update_target()
 
     if i_episode % 50 == 0:
         print("Episode: %d  loss: %f  reward_threshold: %d" % (i_episode, loss.item(), env.spec.reward_threshold))
