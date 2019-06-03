@@ -19,7 +19,8 @@ class DeepReinforceModule(nn.Module):
         self.epsilon_max = kwargs.get("epsilon_max", 0.1)
         self.epsilon_decay = kwargs.get("epsilon_decay", 200)
         self.learning_rate = kwargs.get("lr", 0.001)
-        self.target_update_rate = kwargs.get("target_update", 50)
+        self.target_update_rate = kwargs.get("target_update", 10)
+        self.batch_size = kwargs.get("batch_size", 32)
         self.counter = 0
         #Rete target, ottimizzatore e memoria
         self.memory = ReplayMemory(self.memory_size)
@@ -31,19 +32,27 @@ class DeepReinforceModule(nn.Module):
 
     def loss(self, **kwargs):
         '''Take a sampled batch from replay memory and compute Q(s, a) and V(s). Return a MSE loss between Q and V.'''
-        batch = self._get_data()
-        state = torch.cat(batch.state) 
-        action = torch.tensor(batch.action)
-        reward = torch.tensor(batch.reward)
-        Q = self(state).gather(-1, action)
+        loss = 0
+        for count in range(self.batch_size):
+            batch = self._get_data()
+            state = torch.cat(batch.state) 
+            action = torch.tensor(batch.action)
+            reward = torch.tensor(batch.reward)
+            Q = self(state).gather(0, action)
 
-        if batch.next_state[0] is not None:
-            next_state = torch.cat(batch.next_state)
-            Q_exp = self.target_net(next_state).max(-1)[0]
-            Q_opt = reward + torch.mul(Q_exp.detach(), self.gamma)
-        else:
-            Q_opt = reward
-        return functional.smooth_l1_loss(Q, Q_opt)
+            if batch.next_state[0] is not None:
+                next_state = torch.cat(batch.next_state)
+                Q_exp = self.target_net(next_state)
+                Q_exp, _ = torch.max(Q_exp, 0)
+                Q_opt = reward + torch.mul(Q_exp.detach(), self.gamma)
+            else:
+                Q_opt = reward
+            
+            loss += functional.smooth_l1_loss(Q, Q_opt)
+
+            if self.counter % self.target_update_rate == 0:
+                self.target_net.load_state_dict(self.state_dict(), strict=False)
+        return loss / self.batch_size
 
 
     def select_action(self):
@@ -57,7 +66,7 @@ class DeepReinforceModule(nn.Module):
     def _get_data(self):
         '''Take a sample from the replay memory and transform it in a batch of arrays, one for every category of "Timestep".'''
         samples = self.memory.sample()
-        batch = Timestep(*zip(*samples)) 
+        batch = Transition(*zip(*samples)) 
         return batch
 
 

@@ -8,12 +8,13 @@ import gym
 import torch
 import torch.nn as nn
 import random
+import numpy
 from torchreinforce import DeepReinforceModule
 
 env = gym.make('MountainCar-v0')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-EPISODES = 2000
+EPISODES = 1000
 STATE_SPACE = env.observation_space.shape[0]
 ACTION_SPACE = env.action_space.n
 
@@ -21,9 +22,9 @@ class Policy(DeepReinforceModule):
     def __init__(self, **kwargs):
         super(Policy, self).__init__(**kwargs)
         self.net = torch.nn.Sequential(
-            nn.Linear(STATE_SPACE, 200),
+            nn.Linear(STATE_SPACE, 300),
             nn.ReLU(),
-            nn.Linear(200, ACTION_SPACE),
+            nn.Linear(300, ACTION_SPACE),
             nn.ReLU()
         )
 
@@ -31,8 +32,8 @@ class Policy(DeepReinforceModule):
         return self.net(x)
 
 
-target_net = Policy(gamma=0.999, epsilon_init=0.9, epsilon_max=0.05, epsilon_decay=200)
-policy_net = Policy(gamma=0.999, epsilon_init=0.9, epsilon_max=0.05, epsilon_decay=200, target_net=target_net)
+target_net = Policy(gamma=0.99, epsilon_init=0.9, epsilon_max=0.1, epsilon_decay=0.99)
+policy_net = Policy(gamma=0.99, epsilon_init=0.9, epsilon_max=0.1, epsilon_decay=0.99, target_net=target_net)
 
 #Weights initializer
 def init_normal(m):
@@ -40,20 +41,21 @@ def init_normal(m):
         nn.init.uniform_(m.weight)
 
 policy_net.apply(init_normal)
+policy_net.target_net.apply(init_normal)
 
 for each_game in range(1000):
     total_reward = 0
     state = torch.as_tensor(env.reset(), dtype=torch.float, device=device)
     done = False
     while not done:
-        #env.render()
-        #Epsilon-greedy policy
         action = env.action_space.sample()
         next_state, reward, done, _ = env.step(action)
         next_state = torch.as_tensor(next_state, dtype=torch.float, device=device)
 
-        if next_state[0].item() > -0.2:
+        if next_state[0].item() > -0.5:
             reward = 1.
+
+        reward = numpy.clip(reward, -1, 1)
 
         if done:
             next_state = None
@@ -76,14 +78,16 @@ for i_episode in range(EPISODES):
         if policy_net.select_action():
             action = env.action_space.sample()
         else:
-            action = policy_net(state).max(-1)[1]
+            action = policy_net(state).max(0)[1]
             action = action.item()
 
         next_state, reward, done, _ = env.step(action)
         next_state = torch.as_tensor(next_state, dtype=torch.float, device=device)
 
-        if next_state[0].item() > -0.2:
+        if next_state[0].item() > -0.5:
             reward = 1.
+
+        reward = numpy.clip(reward, -1, 1)
             
         if done:
             next_state = None
@@ -96,9 +100,6 @@ for i_episode in range(EPISODES):
     policy_net.zero_grad()
     loss.backward()
     policy_net.optimizer.step()
-
-    if i_episode % policy_net.target_update_rate == 0:
-        policy_net.update_target()
 
     if i_episode % 50 == 0:
         print("Episode: %d  loss: %f  total_reward: %d reward_threshold: %d" % (i_episode, loss.item(), total_reward, env.spec.reward_threshold))
