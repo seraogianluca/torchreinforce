@@ -26,7 +26,7 @@ class DeepReinforceModule(nn.Module):
         self.target_net = kwargs.get("target_net", None)
 
         if self.target_net is not None:
-            self.optimizer = optim.RMSprop(self.parameters())
+            self.optimizer = optim.RMSprop(self.parameters(), lr=self.learning_rate)
         
 
     def loss(self, **kwargs):

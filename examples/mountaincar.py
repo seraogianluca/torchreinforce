@@ -13,7 +13,7 @@ from torchreinforce import DeepReinforceModule
 env = gym.make('MountainCar-v0')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-EPISODES = 1000
+EPISODES = 2000
 STATE_SPACE = env.observation_space.shape[0]
 ACTION_SPACE = env.action_space.n
 
@@ -48,11 +48,11 @@ for each_game in range(1000):
     while not done:
         #env.render()
         #Epsilon-greedy policy
-        action = random.randrange(0, 3)
+        action = env.action_space.sample()
         next_state, reward, done, _ = env.step(action)
         next_state = torch.as_tensor(next_state, dtype=torch.float, device=device)
 
-        if next_state[0].item() > -0.4:
+        if next_state[0].item() > -0.2:
             reward = 1.
 
         if done:
@@ -74,7 +74,7 @@ for i_episode in range(EPISODES):
         #env.render()
         #Epsilon-greedy policy
         if policy_net.select_action():
-            action = random.randrange(0, 3)
+            action = env.action_space.sample()
         else:
             action = policy_net(state).max(-1)[1]
             action = action.item()
@@ -82,7 +82,7 @@ for i_episode in range(EPISODES):
         next_state, reward, done, _ = env.step(action)
         next_state = torch.as_tensor(next_state, dtype=torch.float, device=device)
 
-        if next_state[0].item() > -0.4:
+        if next_state[0].item() > -0.2:
             reward = 1.
             
         if done:
