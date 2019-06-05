@@ -38,7 +38,7 @@ class DQN(nn.Module):
 policy = DQN(state_size, action_size)
 target = DQN(state_size, action_size)
 
-agent = DeepReinforceModule(state_size, action_size, seed=0, policy_net=policy, target_net=target)
+agent = DeepReinforceModule(state_size, action_size, policy_net=policy, target_net=target)
 
 scores = []                        # list containing scores from each episode
 scores_window = deque(maxlen=100)
