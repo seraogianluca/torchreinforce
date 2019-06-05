@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as functional
 import random
-import numpy as np
-import math
 
 from .replay_memory import *
 
@@ -63,7 +61,6 @@ class DeepReinforceModule(nn.Module):
             #np.argmax(action_values.cpu().data.numpy())
         else:
             return random.choice(range(self.action_size))
-            #random.choice(np.arange(self.action_size))
 
     def optimize(self):
         experiences = self.memory.sample(self.device)
