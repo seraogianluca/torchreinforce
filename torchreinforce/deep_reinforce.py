@@ -3,85 +3,79 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as functional
 import random
+import numpy as np
 import math
 
 from .replay_memory import *
 
 
 class DeepReinforceModule(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, state_size, action_size, seed, policy_net, target_net, **kwargs):
         super(DeepReinforceModule, self).__init__()
-        #self.__dict__.update(kwargs)
         #Iperparametri
         self.gamma = kwargs.get("gamma", 0.99)
-        self.memory_size = kwargs.get("memory_size", 1000)
-        self.epsilon_init = kwargs.get("epsilon_init", 0.0001)
-        self.epsilon_max = kwargs.get("epsilon_max", 0.1)
-        self.epsilon_decay = kwargs.get("epsilon_decay", 200)
-        self.learning_rate = kwargs.get("lr", 0.001)
-        self.target_update_rate = kwargs.get("target_update", 10)
-        self.batch_size = kwargs.get("batch_size", 32)
-        self.counter = 0
-        #Rete target, ottimizzatore e memoria
-        self.memory = ReplayMemory(self.memory_size)
-        self.target_net = kwargs.get("target_net", None)
+        self.tau = kwargs.get("tau", 1e-3)
+        self.lr = kwargs.get("learning_rate", 5e-4)
+        self.eps = kwargs.get("epsilon", 0.9)
+        self.update_rate = kwargs.get("update_rate", 4)
+        self.memory_size = kwargs.get("memory_size", int(1e5))
+        self.batch_size = kwargs.get("batch_size", 64)
+        self.epsilon = kwargs.get("epsilon", 1.0)
+        self.epsilon_max = kwargs.get("epsilon_max", 0.01)
+        self.epsilon_decay = kwargs.get("epsilon_decay", 0.995)
 
-        if self.target_net is not None:
-            self.optimizer = optim.RMSprop(self.parameters(), lr=self.learning_rate)
+        #Parametri reti
+        self.state_size = state_size
+        self.action_size = action_size
+        self.seed = random.seed(seed)
+
+        #Reti
+        self.qnetwork_policy = policy_net
+        self.qnetwork_target = target_net
+        self.optimizer = optim.Adam(self.qnetwork_policy.parameters(), lr=self.lr)
+
+        self.memory = ReplayMemory(action_size, self.memory_size, self.batch_size, seed)
+        self.counter = 0
+            
         
 
-    def loss(self, **kwargs):
+    def step(self, state, action, reward, next_state, done):
         '''Take a sampled batch from replay memory and compute Q(s, a) and V(s). Return a MSE loss between Q and V.'''
-        loss = 0
-        for count in range(self.batch_size):
-            batch = self._get_data()
-            state = torch.cat(batch.state) 
-            action = torch.tensor(batch.action)
-            reward = torch.tensor(batch.reward)
-            Q = self(state).gather(0, action)
-
-            if batch.next_state[0] is not None:
-                next_state = torch.cat(batch.next_state)
-                Q_exp = self.target_net(next_state)
-                Q_exp, _ = torch.max(Q_exp, 0)
-                Q_opt = reward + torch.mul(Q_exp.detach(), self.gamma)
-            else:
-                Q_opt = reward
-            
-            loss += functional.smooth_l1_loss(Q, Q_opt)
-
-            if self.counter % self.target_update_rate == 0:
-                self.target_net.load_state_dict(self.state_dict(), strict=False)
-        return loss / self.batch_size
+        self.memory.store(state, action, reward, next_state, done)
+        self.counter = (self.counter + 1) % self.update_rate
+        if self.counter == 0:
+            if len(self.memory) > self.batch_size:
+                self.loss()
 
 
-    def select_action(self):
+    def select_action(self, state):
         '''Perform an annealing epsilon-greedy policy'''
-        sample = random.random()
-        threshold = self.epsilon_max + (self.epsilon_init - self.epsilon_max) * math.exp(-1 * self.counter / self.epsilon_decay)
-        self.counter += 1
-        return sample < threshold
+        state = torch.as_tensor(state, dtype=torch.float).unsqueeze(0)
+        self.qnetwork_policy.eval()
+        with torch.no_grad():
+            action_values = self.qnetwork_policy(state)
+        self.qnetwork_policy.train()
+        #self.eps= self.epsilon_max + (1.0 - self.epsilon_max) * math.exp(-1 * self.counter / self.epsilon_decay)
+        if random.random() > self.epsilon:
+            return np.argmax(action_values.cpu().data.numpy())
+            #np.argmax(action_values.cpu().data.numpy())
+        else:
+            return random.choice(range(self.action_size))
+            #random.choice(np.arange(self.action_size))
 
+    def loss(self):
+        experiences = self.memory.sample()
+
+        states, actions, rewards, next_states, dones = experiences
+        Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+        Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
+        Q_expected = self.qnetwork_policy(states).gather(1, actions)
+        loss = functional.mse_loss(Q_expected, Q_targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        self.soft_update()
     
-    def _get_data(self):
-        '''Take a sample from the replay memory and transform it in a batch of arrays, one for every category of "Timestep".'''
-        samples = self.memory.sample()
-        batch = Transition(*zip(*samples)) 
-        return batch
-
-
-    def clipping_reward(self):
-        '''Clipping positive and negative rewards to 1 and -1 respectively.'''
-        for param in self.parameters():
-            if param.grad is not None:
-                param.grad.data.clamp_(-1, 1)
-
-
-    def update_target(self):
-        '''Update params of the target net'''
-        self.target_net.load_state_dict(self.state_dict(), strict=False)
-
-
-    #def to(self, *args, **kwargs):
-    #    self.target_net = self.target_net.to(*args, **kwargs)
-    #    self.memory = self.memory.to(*args, **kwargs)
+    def soft_update(self):
+        for target_param, local_param in zip(self.qnetwork_target.parameters(), self.qnetwork_policy.parameters()):
+            target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
