@@ -15,7 +15,7 @@ from torchreinforce import DeepReinforceModule
 env = gym.make('LunarLander-v2')
 env.seed(0)
 
-EPISODES = 100
+EPISODES = 300
 state_size = env.observation_space.shape[0]
 action_size = env.action_space.n
 
@@ -40,7 +40,6 @@ target = DQN(state_size, action_size)
 
 agent = DeepReinforceModule(state_size, action_size, policy_net=policy, target_net=target)
 
-scores = []                        # list containing scores from each episode
 scores_window = deque(maxlen=100)
 for i_episode in range(EPISODES):
     total_reward = 0
@@ -54,8 +53,7 @@ for i_episode in range(EPISODES):
         state = next_state
         total_reward += reward
         score += reward 
-    scores_window.append(score)       # save most recent score
-    scores.append(score)
+    scores_window.append(score)
     agent.epsilon_annealign()
 
     print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)), end="")
