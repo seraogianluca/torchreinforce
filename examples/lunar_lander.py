@@ -14,16 +14,15 @@ from torchreinforce import DeepReinforceModule
 
 env = gym.make('LunarLander-v2')
 env.seed(0)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-EPISODES = 300
+EPISODES = 100
 state_size = env.observation_space.shape[0]
 action_size = env.action_space.n
 
 class DQN(nn.Module):
-    def __init__(self, state_size, action_size, seed, **kwargs):
+    def __init__(self, state_size, action_size, **kwargs):
         super(DQN, self).__init__(**kwargs)
-        self.seed = torch.manual_seed(seed)
+        self.seed = torch.manual_seed(kwargs.get("seed", 0))
         self.net = torch.nn.Sequential(
             nn.Linear(state_size, 64),
             nn.ReLU(),
@@ -36,8 +35,8 @@ class DQN(nn.Module):
         return self.net(x)
 
 
-policy = DQN(state_size, action_size, seed=0)
-target = DQN(state_size, action_size, seed=0)
+policy = DQN(state_size, action_size)
+target = DQN(state_size, action_size)
 
 agent = DeepReinforceModule(state_size, action_size, seed=0, policy_net=policy, target_net=target)
 
@@ -57,7 +56,7 @@ for i_episode in range(EPISODES):
         score += reward 
     scores_window.append(score)       # save most recent score
     scores.append(score)
-    agent.epsilon = max(agent.epsilon_max, agent.epsilon_decay*agent.epsilon)
+    agent.epsilon_annealign()
 
     print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)), end="")
     if i_episode % 100 == 0:

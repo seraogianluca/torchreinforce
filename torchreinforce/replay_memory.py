@@ -1,13 +1,9 @@
-import random
 import torch
-import numpy as np
 from collections import namedtuple
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+import random
 
 class ReplayMemory(object):
-    def __init__(self, action_size, memory_size, batch_size, seed):
-        self.action_size = action_size
+    def __init__(self, memory_size, batch_size, seed=0):
         self.memory = []
         self.memory_size = memory_size
         self.batch_size = batch_size
@@ -23,20 +19,15 @@ class ReplayMemory(object):
             self.memory.pop(0)
         self.memory.append(transition)
     
-    def sample(self):
+    def sample(self, device):
         """Sample a random batch from the memory."""
-        experiences = random.sample(self.memory, k=self.batch_size)
+        transitions = random.sample(self.memory, k=self.batch_size)
 
-        #states = torch.tensor([t.state for t in experiences if t is not None], dtype=torch.float).unsqueeze(1)
-        states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
-        #actions = torch.tensor([t.action for t in experiences if t is not None], dtype=torch.long).unsqueeze(1)
-        actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).long().to(device)
-        #rewards = torch.tensor([t.reward for t in experiences if t is not None], dtype=torch.float).unsqueeze(1)
-        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
-        #next_states = torch.tensor([t.next_state for t in experiences if t is not None], dtype=torch.float).unsqueeze(1)
-        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(device)
-        #dones = torch.tensor([t.done for t in experiences if t is not None], dtype=torch.float).unsqueeze(1)
-        dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
+        states = torch.tensor([t.state for t in transitions if t is not None], dtype=torch.float, device=device).unsqueeze(1).squeeze(1)
+        actions = torch.tensor([t.action for t in transitions if t is not None], dtype=torch.long, device=device).unsqueeze(1)
+        rewards = torch.tensor([t.reward for t in transitions if t is not None], dtype=torch.float, device=device).unsqueeze(1)
+        next_states = torch.tensor([t.next_state for t in transitions if t is not None], dtype=torch.float, device=device).unsqueeze(1).squeeze(1)
+        dones = torch.tensor([t.done for t in transitions if t is not None], dtype=torch.float, device=device).unsqueeze(1)
         
         return (states, actions, rewards, next_states, dones)
 
