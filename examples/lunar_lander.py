@@ -38,20 +38,18 @@ class DQN(nn.Module):
 policy = DQN(state_size, action_size)
 target = DQN(state_size, action_size)
 
-agent = DeepReinforceModule(state_size, action_size, policy_net=policy, target_net=target)
+agent = DeepReinforceModule(policy_net=policy, target_net=target)
 
 scores_window = deque(maxlen=100)
 for i_episode in range(EPISODES):
-    total_reward = 0
     state = env.reset()
     done = False
     score = 0
     while not done:
-        action = agent.select_action(state)
+        action = agent.select_action(state, action_size)
         next_state, reward, done, _ = env.step(action)
         agent.step(state, action, reward, next_state, done)
         state = next_state
-        total_reward += reward
         score += reward 
     scores_window.append(score)
     agent.epsilon_annealign()

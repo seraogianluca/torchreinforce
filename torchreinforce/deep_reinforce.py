@@ -8,12 +8,12 @@ from .replay_memory import *
 
 
 class DeepReinforceModule(nn.Module):
-    def __init__(self, state_size, action_size, policy_net, target_net, **kwargs):
+    def __init__(self, policy_net, target_net, **kwargs):
         super(DeepReinforceModule, self).__init__()
-        #Device
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.seed = random.seed(kwargs.get("seed", 0))
+        self.counter = 0
 
-        #Iperparametri
         self.gamma = kwargs.get("gamma", 0.99)
         self.tau = kwargs.get("tau", 1e-3)
         self.lr = kwargs.get("learning_rate", 5e-4)
@@ -24,23 +24,16 @@ class DeepReinforceModule(nn.Module):
         self.memory_size = kwargs.get("memory_size", int(1e5))
         self.batch_size = kwargs.get("batch_size", 64)
 
-        #Parametri reti
-        self.state_size = state_size
-        self.action_size = action_size
-        self.seed = random.seed(kwargs.get("seed", 0))
-
-        #Reti
         self.qnetwork_policy = policy_net
         self.qnetwork_target = target_net
         self.optimizer = optim.Adam(self.qnetwork_policy.parameters(), lr=self.lr)
 
         self.memory = ReplayMemory(self.memory_size, self.batch_size)
-        self.counter = 0
+        
             
         
 
     def step(self, state, action, reward, next_state, done):
-        '''Take a sampled batch from replay memory and compute Q(s, a) and V(s). Return a MSE loss between Q and V.'''
         self.memory.store(state, action, reward, next_state, done)
         self.counter = (self.counter + 1) % self.update_rate
         if self.counter == 0:
@@ -48,8 +41,7 @@ class DeepReinforceModule(nn.Module):
                 self.optimize()
 
 
-    def select_action(self, state):
-        '''Perform an annealing epsilon-greedy policy'''
+    def select_action(self, state, action_size):
         state = torch.as_tensor(state, dtype=torch.float).unsqueeze(0)
         self.qnetwork_policy.eval()
         with torch.no_grad():
@@ -58,14 +50,13 @@ class DeepReinforceModule(nn.Module):
         if random.random() > self.epsilon:
             _, max_action = torch.max(action_values, 1)
             return max_action.item()
-            #np.argmax(action_values.cpu().data.numpy())
         else:
-            return random.choice(range(self.action_size))
+            return random.choice(range(action_size))
 
     def optimize(self):
-        experiences = self.memory.sample(self.device)
+        transitions = self.memory.sample(self.device)
 
-        states, actions, rewards, next_states, dones = experiences
+        states, actions, rewards, next_states, dones = transitions
         Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
         Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
         Q_expected = self.qnetwork_policy(states).gather(1, actions)
@@ -82,4 +73,3 @@ class DeepReinforceModule(nn.Module):
     
     def epsilon_annealign(self):
         self.epsilon = max(self.epsilon_max, self.epsilon*self.epsilon_decay)
-        #self.epsilon = self.epsilon_max + (self.epsilon - self.epsilon_max) * math.exp(-1 * self.counter / self.epsilon_decay)
