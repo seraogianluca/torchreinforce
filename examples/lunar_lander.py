@@ -15,7 +15,7 @@ from torchreinforce import DeepReinforceModule
 env = gym.make('LunarLander-v2')
 env.seed(0)
 
-EPISODES = 300
+EPISODES = 1000
 state_size = env.observation_space.shape[0]
 action_size = env.action_space.n
 
@@ -45,16 +45,26 @@ for i_episode in range(EPISODES):
     state = env.reset()
     done = False
     score = 0
+    i = 0
     while not done:
         action = agent.select_action(state, action_size)
         next_state, reward, done, _ = env.step(action)
         agent.step(state, action, reward, next_state, done)
         state = next_state
-        score += reward 
+        score += reward
     scores_window.append(score)
     agent.epsilon_annealign()
-
     print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)), end="")
     if i_episode % 100 == 0:
         print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
+env.close()
+
+env.reset()
+while True:
+    action = agent.select_action(state, action_size)
+    next_state, reward, done, _ = env.step(action)
+    state = next_state
+    env.render()
+    if done:
+        state = env.reset()
 env.close()
